@@ -1,6 +1,7 @@
+import { FlashList } from "@shopify/flash-list";
 import { Canvas, LinearGradient, Rect, vec } from "@shopify/react-native-skia";
-import { useEffect } from "react";
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import {
   Easing,
   interpolateColor,
@@ -9,8 +10,46 @@ import {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BAR_HEIGHT, BottomActionBar } from "../components/BottomActionBar";
+import { DestinationCard } from "../components/cards/DestinationCard";
+import { HeroCoverCard } from "../components/cards/HeroCoverCard";
 import { PerformanceOverlay } from "../components/PerformanceOverlay";
-import { RandomWalkSquare } from "../components/RandomWalkSquare";
+import { Fonts } from "../constants/fonts";
+import { buildDestinationFeed } from "../data/destinationFeed";
+
+const HERO_CARDS = [
+  {
+    id: "travel",
+    imageUrl: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80",
+    title: "Travel",
+    subtitle: "Bucket list 2026",
+  },
+  {
+    id: "mountains",
+    imageUrl: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80",
+    title: "Escape",
+    subtitle: "Mountain trails",
+  },
+  {
+    id: "dining",
+    imageUrl: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80",
+    title: "Dining",
+    subtitle: "Top picks nearby",
+  },
+  {
+    id: "brunch",
+    imageUrl: "https://images.unsplash.com/photo-1493857671505-72967e2e2760?w=800&q=80",
+    title: "Brunch",
+    subtitle: "Weekend favorites",
+  },
+];
+
+const DESTINATION_FEED = buildDestinationFeed(120);
+
+function renderDestinationItem({ item }: { item: (typeof DESTINATION_FEED)[number] }) {
+  return <DestinationCard {...item} />;
+}
 
 const TOP_COLORS = ["#5E443F", "#904D4E", "#2D2338", "#5E443F"];
 const BOTTOM_COLORS = ["#A3837D", "#34272B", "#867677", "#A3837D"];
@@ -18,7 +57,9 @@ const SEGMENT_DURATION_MS = 9000;
 
 export default function HomeScreen() {
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const progress = useSharedValue(0);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   useEffect(() => {
     progress.value = withRepeat(
@@ -48,8 +89,56 @@ export default function HomeScreen() {
           />
         </Rect>
       </Canvas>
-      <Text style={styles.text}>Hello World, Devansh</Text>
-      <RandomWalkSquare />
+      <FlashList
+        data={DESTINATION_FEED}
+        keyExtractor={(item) => item.id}
+        renderItem={renderDestinationItem}
+        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+        ListHeaderComponent={
+          <View style={styles.heroCarousel}>
+            <FlashList
+              data={HERO_CARDS}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <HeroCoverCard
+                  imageUrl={item.imageUrl}
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  style={styles.heroCard}
+                />
+              )}
+              ItemSeparatorComponent={() => <View style={styles.heroSeparator} />}
+              contentContainerStyle={styles.heroCarouselContent}
+            />
+          </View>
+        }
+        ListHeaderComponentStyle={styles.listHeader}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: insets.top + 24,
+          paddingBottom: insets.bottom + BAR_HEIGHT + 48,
+        }}
+      />
+      <BottomActionBar label="Plan a trip" onPress={() => setIsSheetOpen(true)} />
+      <Modal
+        visible={isSheetOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsSheetOpen(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsSheetOpen(false)} />
+          <View style={[styles.sheetContainer, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Coming soon</Text>
+            <Text style={styles.sheetSubtitle}>
+              This is a placeholder bottom sheet — content to be defined.
+            </Text>
+          </View>
+        </View>
+      </Modal>
       <PerformanceOverlay />
     </View>
   );
@@ -58,11 +147,56 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  text: {
-    fontSize: 24,
+  heroCarousel: {
+    height: 300,
+    marginHorizontal: -20,
+  },
+  heroCarouselContent: {
+    paddingHorizontal: 20,
+  },
+  heroCard: {
+    width: 200,
+  },
+  heroSeparator: {
+    width: 12,
+  },
+  listHeader: {
+    marginBottom: 24,
+  },
+  itemSeparator: {
+    height: 12,
+  },
+  modalRoot: {
+    flex: 1,
+    backgroundColor: "rgba(11,8,8,0.6)",
+    justifyContent: "flex-end",
+  },
+  sheetContainer: {
+    height: "50%",
+    backgroundColor: "#272024",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    gap: 8,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#867677",
+    marginBottom: 12,
+  },
+  sheetTitle: {
+    fontFamily: Fonts.semibold,
+    fontSize: 18,
     color: "#E5D5D5",
+  },
+  sheetSubtitle: {
+    fontFamily: Fonts.regular,
+    fontSize: 14,
+    color: "#867677",
   },
 });
