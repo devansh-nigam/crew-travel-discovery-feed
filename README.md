@@ -1,6 +1,8 @@
 # Crew Travel Discovery Feed
 
-https://github.com/user-attachments/assets/9d7598c6-aa2a-4908-995f-d7b5b992b046
+<p align="center">
+  https://github.com/user-attachments/assets/9d7598c6-aa2a-4908-995f-d7b5b992b046
+</p>
 
 <p align="center">
   <img src="./assets/images/screenshots/feed-overview.png" width="18%" alt="Discovery feed: hero carousel and destination cards" />
@@ -8,12 +10,6 @@ https://github.com/user-attachments/assets/9d7598c6-aa2a-4908-995f-d7b5b992b046
   <img src="./assets/images/screenshots/trip-assistant-half-open.png" width="18%" alt="Trip Assistant sheet dragged to half height over the feed" />
   <img src="./assets/images/screenshots/trip-assistant-chat.png" width="18%" alt="Trip Assistant chat sheet expanded to full height" />
   <img src="./assets/images/screenshots/feed-outro.png" width="18%" alt="End-of-feed signature card" />
-</p>
-
-<p align="center">
-  <video src="./assets/images/screenshots/app-demo.mp4" controls width="360">
-    Demo video — if it doesn't play inline, see <a href="./assets/images/screenshots/app-demo.mp4">assets/images/screenshots/app-demo.mp4</a>.
-  </video>
 </p>
 
 A native mobile prototype (Expo SDK 57 / React Native 0.86 / React 19) for a swipeable, Instagram-Explore-style travel discovery feed with an AI trip-planning assistant. Built to explore Reanimated-driven UI-thread interaction patterns — drag-to-expand sheets, worklet-only card animations, and a from-scratch performance instrumentation overlay — rather than to ship a production travel product.
