@@ -1,7 +1,11 @@
 # Crew Travel Discovery Feed
 
 <p align="center">
-  https://github.com/user-attachments/assets/9d7598c6-aa2a-4908-995f-d7b5b992b046
+  <img src="./assets/images/screenshots/app-demo.gif" width="360" alt="App demo: scrolling the discovery feed" />
+</p>
+
+<p align="center">
+  <sub>Watch the full-quality demo video <a href="https://drive.google.com/file/d/1gIZiUyQlCvwo4ydyb01hNo6WqhN_Cp4I/view?usp=sharing">here</a>.</sub>
 </p>
 
 <p align="center">
