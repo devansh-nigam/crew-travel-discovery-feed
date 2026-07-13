@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
+  Extrapolation,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
@@ -26,73 +27,79 @@ const FLICK_VELOCITY_THRESHOLD = 600;
 
 export function PlanTripSheet({ visible, onClose, containerHeight }: PlanTripSheetProps) {
   const insets = useSafeAreaInsets();
-  const [isExpanded, setIsExpanded] = useState(false);
 
-  const sheetProgress = useSharedValue(0);
-  const expandProgress = useSharedValue(0);
-  const dragStartProgress = useSharedValue(0);
-
-  const halfHeight = containerHeight * 0.5;
+  // The sheet's own height is fixed at its "full" size; dragging only ever
+  // moves it via translateY. This lets one continuous drag span all three
+  // states (closed / half / full) instead of animating height per-segment.
   const fullHeight = containerHeight - insets.top - 16;
-  const expandRange = fullHeight - halfHeight;
+  const halfHeight = containerHeight * 0.5;
+
+  const FULL_Y = 0;
+  const HALF_Y = fullHeight - halfHeight;
+  const CLOSED_Y = containerHeight;
+
+  const translateY = useSharedValue(CLOSED_Y);
+  const dragStartY = useSharedValue(CLOSED_Y);
 
   useEffect(() => {
-    sheetProgress.value = withTiming(visible ? 1 : 0, {
+    translateY.value = withTiming(visible ? HALF_Y : CLOSED_Y, {
       duration: ANIMATION_DURATION,
       easing: ANIMATION_EASING,
     });
-    if (!visible) {
-      expandProgress.value = withTiming(0, {
-        duration: ANIMATION_DURATION,
-        easing: ANIMATION_EASING,
-      });
-      setIsExpanded(false);
-    }
-  }, [visible, sheetProgress, expandProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const toggleExpanded = () => {
-    const next = !isExpanded;
-    setIsExpanded(next);
-    expandProgress.value = withTiming(next ? 1 : 0, {
+    const target = translateY.value <= (FULL_Y + HALF_Y) / 2 ? HALF_Y : FULL_Y;
+    translateY.value = withTiming(target, {
       duration: ANIMATION_DURATION,
       easing: ANIMATION_EASING,
     });
   };
 
   const dragGesture = Gesture.Pan()
+    .hitSlop({ top: 16, bottom: 16 })
     .onStart(() => {
       'worklet';
-      dragStartProgress.value = expandProgress.value;
+      dragStartY.value = translateY.value;
     })
     .onUpdate((event) => {
       'worklet';
-      const delta = -event.translationY / expandRange;
-      expandProgress.value = Math.min(1, Math.max(0, dragStartProgress.value + delta));
+      translateY.value = Math.min(
+        CLOSED_Y,
+        Math.max(FULL_Y, dragStartY.value + event.translationY),
+      );
     })
     .onEnd((event) => {
       'worklet';
       let target: number;
-      if (event.velocityY < -FLICK_VELOCITY_THRESHOLD) {
-        target = 1;
-      } else if (event.velocityY > FLICK_VELOCITY_THRESHOLD) {
-        target = 0;
+      if (event.velocityY > FLICK_VELOCITY_THRESHOLD) {
+        target = translateY.value < HALF_Y ? HALF_Y : CLOSED_Y;
+      } else if (event.velocityY < -FLICK_VELOCITY_THRESHOLD) {
+        target = translateY.value > HALF_Y ? HALF_Y : FULL_Y;
+      } else if (translateY.value < HALF_Y) {
+        target = translateY.value < HALF_Y / 2 ? FULL_Y : HALF_Y;
       } else {
-        target = expandProgress.value > 0.5 ? 1 : 0;
+        target = translateY.value < HALF_Y + (CLOSED_Y - HALF_Y) / 2 ? HALF_Y : CLOSED_Y;
       }
-      expandProgress.value = withTiming(target, {
+      translateY.value = withTiming(target, {
         duration: ANIMATION_DURATION,
         easing: ANIMATION_EASING,
       });
-      scheduleOnRN(setIsExpanded, target === 1);
+      if (target === CLOSED_Y) {
+        scheduleOnRN(onClose);
+      }
     });
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    height: interpolate(expandProgress.value, [0, 1], [halfHeight, fullHeight]),
-    transform: [{ translateY: interpolate(sheetProgress.value, [0, 1], [containerHeight, 0]) }],
+    height: fullHeight,
+    transform: [{ translateY: translateY.value }],
   }));
 
   const expandIconStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${180 - expandProgress.value * 180}deg` }],
+    transform: [
+      { rotate: `${interpolate(translateY.value, [FULL_Y, HALF_Y], [0, 180], Extrapolation.CLAMP)}deg` },
+    ],
   }));
 
   return (
@@ -101,8 +108,9 @@ export function PlanTripSheet({ visible, onClose, containerHeight }: PlanTripShe
         style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheetAnimatedStyle]}
       >
         <GestureDetector gesture={dragGesture}>
-          <View style={styles.header}>
+          <View style={styles.dragArea}>
             <View style={styles.handle} />
+            <Text style={styles.title}>Coming soon</Text>
           </View>
         </GestureDetector>
 
@@ -112,7 +120,6 @@ export function PlanTripSheet({ visible, onClose, containerHeight }: PlanTripShe
           </Animated.View>
         </Pressable>
 
-        <Text style={styles.title}>Coming soon</Text>
         <Text style={styles.subtitle}>
           This is a placeholder bottom sheet — content to be defined.
         </Text>
@@ -141,9 +148,11 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
   },
-  header: {
+  dragArea: {
     alignItems: 'center',
-    paddingVertical: 12,
+    gap: 10,
+    paddingTop: 16,
+    paddingBottom: 14,
   },
   handle: {
     width: 40,
@@ -153,17 +162,22 @@ const styles = StyleSheet.create({
   },
   expandButton: {
     position: 'absolute',
-    top: 14,
-    right: 20,
-    padding: 4,
+    top: 12,
+    left: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#34272B',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeButton: {
     position: 'absolute',
-    bottom: 12,
-    alignSelf: 'center',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    top: 12,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#34272B',
     alignItems: 'center',
     justifyContent: 'center',
