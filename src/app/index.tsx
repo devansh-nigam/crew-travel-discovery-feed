@@ -1,7 +1,7 @@
 import { FlashList } from "@shopify/flash-list";
 import { Canvas, LinearGradient, Rect, vec } from "@shopify/react-native-skia";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import {
   Easing,
   interpolateColor,
@@ -15,7 +15,7 @@ import { BAR_HEIGHT, BottomActionBar } from "../components/BottomActionBar";
 import { DestinationCard } from "../components/cards/DestinationCard";
 import { HeroCoverCard } from "../components/cards/HeroCoverCard";
 import { PerformanceOverlay } from "../components/PerformanceOverlay";
-import { Fonts } from "../constants/fonts";
+import { PlanTripSheet } from "../components/PlanTripSheet";
 import { buildDestinationFeed } from "../data/destinationFeed";
 
 const HERO_CARDS = [
@@ -78,6 +78,8 @@ export default function HomeScreen() {
     interpolateColor(progress.value, inputRange, BOTTOM_COLORS),
   ]);
 
+  const toggleSheet = () => setIsSheetOpen((current) => !current);
+
   return (
     <View style={styles.container}>
       <Canvas style={StyleSheet.absoluteFill}>
@@ -121,24 +123,11 @@ export default function HomeScreen() {
           paddingBottom: insets.bottom + BAR_HEIGHT + 48,
         }}
       />
-      <BottomActionBar label="Plan a trip" onPress={() => setIsSheetOpen(true)} />
-      <Modal
-        visible={isSheetOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsSheetOpen(false)}
-      >
-        <View style={styles.modalRoot}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsSheetOpen(false)} />
-          <View style={[styles.sheetContainer, { paddingBottom: insets.bottom + 16 }]}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Coming soon</Text>
-            <Text style={styles.sheetSubtitle}>
-              This is a placeholder bottom sheet — content to be defined.
-            </Text>
-          </View>
-        </View>
-      </Modal>
+      <BottomActionBar
+        label={isSheetOpen ? "Close" : "Plan a trip"}
+        onPress={toggleSheet}
+      />
+      <PlanTripSheet visible={isSheetOpen} onClose={() => setIsSheetOpen(false)} containerHeight={height} />
       <PerformanceOverlay />
     </View>
   );
@@ -166,37 +155,5 @@ const styles = StyleSheet.create({
   },
   itemSeparator: {
     height: 12,
-  },
-  modalRoot: {
-    flex: 1,
-    backgroundColor: "rgba(11,8,8,0.6)",
-    justifyContent: "flex-end",
-  },
-  sheetContainer: {
-    height: "50%",
-    backgroundColor: "#272024",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    gap: 8,
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#867677",
-    marginBottom: 12,
-  },
-  sheetTitle: {
-    fontFamily: Fonts.semibold,
-    fontSize: 18,
-    color: "#E5D5D5",
-  },
-  sheetSubtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 14,
-    color: "#867677",
   },
 });
