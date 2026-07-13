@@ -1,4 +1,5 @@
 import { Canvas, Circle, matchFont, Text as SkiaText } from '@shopify/react-native-skia';
+import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -164,6 +165,7 @@ export function PerformanceOverlay() {
   });
 
   const resetSession = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     frameDropCount.value = 0;
     worstFrameMs.value = 0;
     p50Ms.value = 0;
@@ -172,7 +174,10 @@ export function PerformanceOverlay() {
     histogram.value = new Array(HISTOGRAM_BUCKETS).fill(0);
   };
 
-  const toggleExpanded = () => setExpanded((v) => !v);
+  const toggleExpanded = () => {
+    Haptics.selectionAsync();
+    setExpanded((v) => !v);
+  };
 
   const fpsText = useDerivedValue(() => `${liveFps.value} FPS`);
   const dropsText = useDerivedValue(() => `Drops: ${frameDropCount.value}`);

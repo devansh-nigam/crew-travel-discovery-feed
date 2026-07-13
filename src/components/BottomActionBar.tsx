@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -35,6 +36,7 @@ export function BottomActionBar({ label, onPress }: BottomActionBarProps) {
       <Pressable
         onPress={onPress}
         onPressIn={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           pressProgress.value = withTiming(1, { duration: PRESS_IN_DURATION, easing: PRESS_EASING });
         }}
         onPressOut={() => {

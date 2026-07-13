@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { memo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -8,6 +9,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { ChevronDownIcon } from '@/components/icons/ChevronDownIcon';
 import { Fonts } from '@/constants/fonts';
 
@@ -48,9 +50,14 @@ function DestinationCardComponent({
   const progress = useSharedValue(0);
   const expanded = useSharedValue(false);
 
+  const triggerHaptic = () => {
+    Haptics.selectionAsync();
+  };
+
   // Runs entirely on the UI thread: the tap, the state flip, and the
   // animation kickoff never hop to the JS thread, so a busy JS thread
   // (e.g. FlashList recycling cells mid-scroll) can't stall the chevron.
+  // The haptic is the one necessary hop, since it's a native/JS-thread call.
   const toggleGesture = Gesture.Tap().onEnd(() => {
     'worklet';
     expanded.value = !expanded.value;
@@ -58,6 +65,7 @@ function DestinationCardComponent({
       duration: ANIMATION_DURATION,
       easing: ANIMATION_EASING,
     });
+    scheduleOnRN(triggerHaptic);
   });
 
   const detailsStyle = useAnimatedStyle(() => ({

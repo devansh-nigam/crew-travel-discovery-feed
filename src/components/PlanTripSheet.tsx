@@ -1,6 +1,8 @@
+import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import Animated, {
   Easing,
   Extrapolation,
@@ -11,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PlanTripChat } from '@/components/chat/PlanTripChat';
 import { ChevronDownIcon } from '@/components/icons/ChevronDownIcon';
 import { CloseIcon } from '@/components/icons/CloseIcon';
 import { Fonts } from '@/constants/fonts';
@@ -27,79 +30,120 @@ const FLICK_VELOCITY_THRESHOLD = 600;
 
 export function PlanTripSheet({ visible, onClose, containerHeight }: PlanTripSheetProps) {
   const insets = useSafeAreaInsets();
+  const { height: keyboardHeight } = useReanimatedKeyboardAnimation();
 
-  // The sheet's own height is fixed at its "full" size; dragging only ever
-  // moves it via translateY. This lets one continuous drag span all three
-  // states (closed / half / full) instead of animating height per-segment.
+  // revealAmount is how many pixels of the sheet are currently visible from
+  // the bottom of the screen, from 0 (closed) up to fullHeight (fully open).
+  // Below halfHeight, the sheet's *height* stays pinned at halfHeight and
+  // translateY slides it down to hide the excess (closed <-> half). At or
+  // above halfHeight, translateY is 0 and height itself grows (half <-> full)
+  // — so the sheet's rendered height always equals what's actually on
+  // screen, and bottom-pinned content (like the chat input) never ends up
+  // below the visible fold the way it would if height stayed fixed at
+  // fullHeight with translateY alone doing the hiding.
   const fullHeight = containerHeight - insets.top - 16;
   const halfHeight = containerHeight * 0.5;
 
-  const FULL_Y = 0;
-  const HALF_Y = fullHeight - halfHeight;
-  const CLOSED_Y = containerHeight;
-
-  const translateY = useSharedValue(CLOSED_Y);
-  const dragStartY = useSharedValue(CLOSED_Y);
+  const revealAmount = useSharedValue(0);
+  const dragStartReveal = useSharedValue(0);
 
   useEffect(() => {
-    translateY.value = withTiming(visible ? HALF_Y : CLOSED_Y, {
+    revealAmount.value = withTiming(visible ? halfHeight : 0, {
       duration: ANIMATION_DURATION,
       easing: ANIMATION_EASING,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  const dismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
   const toggleExpanded = () => {
-    const target = translateY.value <= (FULL_Y + HALF_Y) / 2 ? HALF_Y : FULL_Y;
-    translateY.value = withTiming(target, {
+    Haptics.selectionAsync();
+    const midpoint = (halfHeight + fullHeight) / 2;
+    const target = revealAmount.value < midpoint ? fullHeight : halfHeight;
+    if (target === halfHeight) {
+      dismissKeyboard();
+    }
+    revealAmount.value = withTiming(target, {
       duration: ANIMATION_DURATION,
       easing: ANIMATION_EASING,
     });
+  };
+
+  const expandToFull = () => {
+    revealAmount.value = withTiming(fullHeight, {
+      duration: ANIMATION_DURATION,
+      easing: ANIMATION_EASING,
+    });
+  };
+
+  // Every path that leaves the sheet at half height or fully closed funnels
+  // through these so the keyboard never gets left open over too little (or
+  // no) sheet to show it against.
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    dismissKeyboard();
+    onClose();
   };
 
   const dragGesture = Gesture.Pan()
     .hitSlop({ top: 16, bottom: 16 })
     .onStart(() => {
       'worklet';
-      dragStartY.value = translateY.value;
+      dragStartReveal.value = revealAmount.value;
     })
     .onUpdate((event) => {
       'worklet';
-      translateY.value = Math.min(
-        CLOSED_Y,
-        Math.max(FULL_Y, dragStartY.value + event.translationY),
+      revealAmount.value = Math.min(
+        fullHeight,
+        Math.max(0, dragStartReveal.value - event.translationY),
       );
     })
     .onEnd((event) => {
       'worklet';
       let target: number;
-      if (event.velocityY > FLICK_VELOCITY_THRESHOLD) {
-        target = translateY.value < HALF_Y ? HALF_Y : CLOSED_Y;
-      } else if (event.velocityY < -FLICK_VELOCITY_THRESHOLD) {
-        target = translateY.value > HALF_Y ? HALF_Y : FULL_Y;
-      } else if (translateY.value < HALF_Y) {
-        target = translateY.value < HALF_Y / 2 ? FULL_Y : HALF_Y;
+      if (event.velocityY < -FLICK_VELOCITY_THRESHOLD) {
+        target = revealAmount.value < halfHeight ? halfHeight : fullHeight;
+      } else if (event.velocityY > FLICK_VELOCITY_THRESHOLD) {
+        target = revealAmount.value > halfHeight ? halfHeight : 0;
+      } else if (revealAmount.value < halfHeight) {
+        target = revealAmount.value < halfHeight / 2 ? 0 : halfHeight;
       } else {
-        target = translateY.value < HALF_Y + (CLOSED_Y - HALF_Y) / 2 ? HALF_Y : CLOSED_Y;
+        target = revealAmount.value < halfHeight + (fullHeight - halfHeight) / 2 ? halfHeight : fullHeight;
       }
-      translateY.value = withTiming(target, {
+      revealAmount.value = withTiming(target, {
         duration: ANIMATION_DURATION,
         easing: ANIMATION_EASING,
       });
-      if (target === CLOSED_Y) {
-        scheduleOnRN(onClose);
+      if (target === 0) {
+        scheduleOnRN(handleClose);
+      } else if (target === halfHeight) {
+        scheduleOnRN(dismissKeyboard);
       }
     });
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    height: fullHeight,
-    transform: [{ translateY: translateY.value }],
+    height: Math.max(halfHeight, revealAmount.value),
+    transform: [{ translateY: halfHeight - Math.min(revealAmount.value, halfHeight) }],
   }));
 
   const expandIconStyle = useAnimatedStyle(() => ({
     transform: [
-      { rotate: `${interpolate(translateY.value, [FULL_Y, HALF_Y], [0, 180], Extrapolation.CLAMP)}deg` },
+      { rotate: `${interpolate(revealAmount.value, [halfHeight, fullHeight], [180, 0], Extrapolation.CLAMP)}deg` },
     ],
+  }));
+
+  // Driven by the same Reanimated/UI-thread pipeline as the sheet's own
+  // drag animation, instead of KeyboardAvoidingView (which adjusts layout
+  // via JS-thread state) — the two systems fighting each other was the
+  // source of the keyboard-open glitching.
+  const chatWrapperAnimatedStyle = useAnimatedStyle(() => ({
+    // The sheet itself already reserves insets.bottom (line below) for the
+    // home-indicator area, so subtract it here to avoid padding that sliver
+    // twice on top of the keyboard's own height.
+    paddingBottom: Math.max(0, Math.abs(keyboardHeight.value) - insets.bottom),
   }));
 
   return (
@@ -110,7 +154,7 @@ export function PlanTripSheet({ visible, onClose, containerHeight }: PlanTripShe
         <GestureDetector gesture={dragGesture}>
           <View style={styles.dragArea}>
             <View style={styles.handle} />
-            <Text style={styles.title}>Coming soon</Text>
+            <Text style={styles.title}>Trip Assistant</Text>
           </View>
         </GestureDetector>
 
@@ -120,11 +164,11 @@ export function PlanTripSheet({ visible, onClose, containerHeight }: PlanTripShe
           </Animated.View>
         </Pressable>
 
-        <Text style={styles.subtitle}>
-          This is a placeholder bottom sheet — content to be defined.
-        </Text>
+        <Animated.View style={[styles.chatWrapper, chatWrapperAnimatedStyle]}>
+          <PlanTripChat onInputFocus={expandToFull} />
+        </Animated.View>
 
-        <Pressable onPress={onClose} style={styles.closeButton} hitSlop={10}>
+        <Pressable onPress={handleClose} style={styles.closeButton} hitSlop={10}>
           <CloseIcon color="#E5D5D5" size={16} />
         </Pressable>
       </Animated.View>
@@ -184,12 +228,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: Fonts.semibold,
-    fontSize: 18,
+    fontSize: 15,
     color: '#E5D5D5',
   },
-  subtitle: {
-    fontFamily: Fonts.regular,
-    fontSize: 14,
-    color: '#867677',
+  chatWrapper: {
+    flex: 1,
   },
 });

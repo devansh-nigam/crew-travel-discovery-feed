@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BAR_HEIGHT, BottomActionBar } from "../components/BottomActionBar";
 import { DestinationCard } from "../components/cards/DestinationCard";
 import { HeroCoverCard } from "../components/cards/HeroCoverCard";
+import { FeedFooter } from "../components/FeedFooter";
 import { PerformanceOverlay } from "../components/PerformanceOverlay";
 import { PlanTripSheet } from "../components/PlanTripSheet";
 import { buildDestinationFeed } from "../data/destinationFeed";
@@ -117,6 +118,7 @@ export default function HomeScreen() {
           </View>
         }
         ListHeaderComponentStyle={styles.listHeader}
+        ListFooterComponent={<FeedFooter />}
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: insets.top + 24,
