@@ -1,5 +1,7 @@
 # Crew Travel Discovery Feed
 
+https://github.com/user-attachments/assets/9d7598c6-aa2a-4908-995f-d7b5b992b046
+
 <p align="center">
   <img src="./assets/images/screenshots/feed-overview.png" width="18%" alt="Discovery feed: hero carousel and destination cards" />
   <img src="./assets/images/screenshots/feed-itinerary.png" width="18%" alt="Destination card expanded to show a day-by-day itinerary" />
